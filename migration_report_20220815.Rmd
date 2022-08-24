@@ -1,0 +1,1174 @@
+---
+title: "Migration in the Glarus data"
+author: "Euan A Young"
+date: '2022-08-15'
+output: html_document
+---
+
+# Background
+
+The reviewers wished me to be more clear about the migration in the region. For example, in each parish (Linthal and Elm) how common is it for people to leave the region. For this I have used the previously calculated "migration status" and arrival and departure years (i.e. when an individual was physically present in a population or not). 
+
+### Summary of estimation of migration status and arrival/departure year calculation
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(error =FALSE)
+knitr::opts_chunk$set(message = F)
+  knitr::opts_chunk$set(warning = F)
+    knitr::opts_chunk$set(fig.width = 10)
+    knitr::opts_chunk$set(fig.height = 6)
+# fig.height 7 plot dimensions in inches
+# out.width rescales output width, e.g. "75%", "300px"
+# collapse FALSE collapse all sources & output into a single block
+# comment "##" prefix for each line of results
+# child NULL files(s) to knit and then include
+# purl TRUE include or exclude a code chunk when
+# extracting source code with knitr::purl()
+# getwd()
+
+library(ggplot2)
+library(tidyr)
+library(stringr)
+library(knitr)
+library(ggpubr)
+library(moments)
+library(gridExtra)
+
+```
+
+```{r knitr::opts_chunk$set(results=F)}
+
+data_elm_uni <- read.csv("data_elm_uni.csv")
+
+for(i in 1:(nrow(data_elm_uni))){ # for each individual
+  id <- data_elm_uni$IDp[i]  ### get individual
+  id_row <- data_elm_uni[data_elm_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- id_row$migrantstatus
+  if(migrant_status=="emigrant") {
+   data_elm_uni$migration_status_sum[data_elm_uni$IDp==id] <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+  else{data_elm_uni$migration_status_sum[data_elm_uni$IDp==id] <- ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)
+  }
+
+    
+}
+
+data_lin_uni <- read.csv("data_lin_uni.csv")
+
+for(i in 1:(nrow(data_lin_uni))){ # for each individual
+  id <- data_lin_uni$IDp[i]  ### get individual
+  id_row <- data_lin_uni[data_lin_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- id_row$migrantstatus
+  if(migrant_status=="emigrant") {
+   data_lin_uni$migration_status_sum[data_lin_uni$IDp==id] <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+  else{data_lin_uni$migration_status_sum[data_lin_uni$IDp==id] <- ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)
+  }
+    
+}
+
+#sorting "assumed migrant error"
+data_elm_uni$migrantstatus[data_elm_uni$migrantstatus=="assumed_immigrant"] <- "assumed_unmarried_resident"
+data_lin_uni$migrantstatus[data_lin_uni$migrantstatus=="assumed_immigrant"] <- "assumed_unmarried_resident"
+
+```
+
+### This followed the following steps:
+
+- We created a dataframe for each parish (Linthal and Elm) of all individuals who had a birth year and were either born or married in that parish (N=`r nrow(data_lin_uni)`, N=`r nrow(data_elm_uni)`)
+- Not all of these individuals had a recorded death year (`r 100*sum(is.na(data_lin_uni$dyear))/NROW(data_lin_uni$dyear)`%, `r 100*sum(is.na(data_elm_uni$dyear))/NROW(data_elm_uni$dyear)`%) and as a result we predicted these from the sex-specific median lifespan of the individuals 10-year birth cohort (except for the individuals that fell within the one "sex-specific median lifespan for the 1910-1920 cohort" of the final styudy year (set as 1990) which were expected to still be alive. If indiviudals were not sexed we used the unsexed median.
+
+These predicted lifespans were as follows:
+  
+```{r}
+
+f01a <- 
+  data_lin_uni %>% 
+  dplyr::filter(byear<1921) %>% 
+  dplyr::group_by(byear,sex) %>% 
+  dplyr::summarise(predicted_lifespan) %>% 
+  ggplot(aes(byear,predicted_lifespan,colour=sex))+
+  geom_point() +
+  ylab("")+
+  xlab("")  +
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+f01b <- 
+  data_elm_uni %>% 
+  dplyr::filter(byear<1921) %>% 
+  dplyr::group_by(byear,sex) %>% 
+  dplyr::summarise(predicted_lifespan) %>% 
+  ggplot(aes(byear,predicted_lifespan,colour=sex))+
+  geom_point() +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "right")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+f01 <- ggarrange(f01a,f01b,
+                labels = c("Linthal", "Elm"),
+                ncol = 2, nrow = 1)
+
+annotate_figure(f01,
+                left = text_grob("Predicted lifespan",rot=90,color = "black", size = 16),
+                bottom = text_grob("Birth year", color = "black", size = 16)
+)
+```
+
+- We then estimated physical presence within each parish by estimating when individuals arrived in (arrival year) and left (departure year) each parish. We did this using records of birth and marriage locations (the parish in which this birth or marriage occured, named as cregcode and sregcode). In the simplest case (i.e. individuals who were born and married in the focal parish and were therefore assumed never to have left) these were the birth and death years of an individual. However, there is significant migration in the region as well as individuals who were still alive or died in childhood. With these in mind, I established the following definitions:
+
+Name: definition; assigning of arrival/departure years
+
+- **resident**: born in the population and reproduced in the population therefore cregcode and sregcode both equal the study parish; Birth year/Death year
+
+- **emmigrant**: born in the population but reproduced outside of the population; cregcode equals the study parish, sregcode does not equal the study parish; Birth year/Birth year of first offspring outside of the parish)
+
+- **immigrant**, born outside of the population but reproduced inside of the population; cregcode does not equal the study parish; sregcode equals the study parish; Birth year of first offspring inside of the parish/Death year
+
+- *Died in childhood*, lifespan is less than their sex specific 20-year cohort’s 5th percentile for AFR; Birth year/Death year
+
+- *Incomplete life history*; any individual who born after 1946;	Birth year/Death year
+
+- *Assumed unmarried*; All other individuals assumed to have remained in the parish but not married, i.e. cregcode equal to birth parish but no recorded sregcode; Birth year/death year)
+
+It should be noted that this would likely include individuals that have emigrated but that the destination was just unknown, thus resulting in no recorded marriage location. 
+
+# Descriptive statistics for migrantstatuses
+
+The sample sizes for these classifications were as follows:
+
+### Overall:
+
+```{r}
+
+
+
+f02a <- ggplot(data_lin_uni,aes(migrantstatus,fill=migrantstatus))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "right")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f02b <- ggplot(data_elm_uni,aes(migrantstatus,fill=migrantstatus))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "right")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f02 <- ggarrange(f02a,f02b,
+                labels = c("Linthal", "Elm"),
+                ncol = 2, nrow = 1)
+
+annotate_figure(f02,
+                left = text_grob("Count",rot=90,color = "black", size = 16),
+                bottom = text_grob("Migration status", color = "black", size = 16)
+)
+
+
+```
+
+## Histograms
+
+### Residents 
+
+```{r}
+
+mgs_ds <- data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="resident") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="resident") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_lin_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+  
+mgs_ds <- data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="resident") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+  data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="resident") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_elm_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+```
+### died_in_childhoods 
+
+```{r}
+
+mgs_ds <- data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="died_in_childhood") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="died_in_childhood") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_lin_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=0, ymin=150)
+  
+mgs_ds <- data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="died_in_childhood") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+  data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="died_in_childhood") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_elm_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=0, ymin=150)
+```
+### Immigrants 
+
+```{r}
+
+mgs_ds <- data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="immigrant") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="immigrant") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_lin_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+  
+mgs_ds <- data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="immigrant") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+  data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="immigrant") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_elm_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+```
+
+### emigrants 
+
+```{r}
+
+mgs_ds <- data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="emigrant") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="emigrant") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_lin_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+  
+mgs_ds <- data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="emigrant") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+  data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="emigrant") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_elm_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+```
+
+### incomplete_life_history
+
+```{r}
+
+mgs_ds <- data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="incomplete_life_history") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="incomplete_life_history") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_lin_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+  
+mgs_ds <- data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="incomplete_life_history") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+  data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="incomplete_life_history") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_elm_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+```
+
+### assumed_unmarried_residents 
+
+```{r}
+
+mgs_ds <- data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="assumed_unmarried_resident") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+data_lin_uni %>% 
+  dplyr::filter(migrantstatus=="assumed_unmarried_resident") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_lin_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+  
+mgs_ds <- data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="assumed_unmarried_resident") %>%
+  dplyr::summarise(N=dplyr::n(),Median=round(median(arr_dep_dif),2),Var=var(arr_dep_dif),CV=(sd(arr_dep_dif)/mean(arr_dep_dif)*100), Skew=round(skewness(arr_dep_dif),2)) %>% 
+  round(1)
+
+row.names(mgs_ds) <- ""
+
+# SF5.ngo.kk <- 
+  data_elm_uni %>% 
+  dplyr::filter(migrantstatus=="assumed_unmarried_resident") %>%
+  ggplot(aes(x=arr_dep_dif)) + 
+  geom_histogram(breaks=seq(0, max(data_elm_uni$arr_dep_dif, na.rm = T), by=5), 
+                 binwidth = 0.7,
+                 col="black", 
+                 fill="darkgrey") + 
+  labs(x="Present in population duration", y="")+
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 8, angle = 0, family = "serif")) +
+  theme(legend.position = "right",legend.justification = c(0.01, 1))+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))+ 
+  annotation_custom(tableGrob(mgs_ds), xmin=-50, ymin=150)
+```
+
+
+## Migration status sample sizes 
+
+Here we count the migrations statuses 
+
+### Overall
+
+```{r}
+
+data_lin_uni <- data_lin_uni  %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(migration_status_sum,'assumed_immigrant','Resident (no marriage record)')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'immigrant, born in GL03','Immigrant (from Elm parish)')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'immigrant, born in NA','Immigrant (from outside Glarus)')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'immigrant, born in GL','Immigrant (from other Glarus parish)')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'emigrant, married in GL03','Emigrant (to Elm)')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'emigrant, married in GL','Emigrant (to other glarus parish)')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'resident','Resident')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'incomplete_life_history','Incomplete life history')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'died_in_childhood','Died during childhood')) %>%
+  dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'[0123456789]','')) %>%
+  dplyr::mutate(`migration status`= mut.migration_status_sum) %>% 
+  dplyr::select(-mut.migration_status_sum)
+
+data_elm_uni <- data_elm_uni  %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(migration_status_sum,'assumed_immigrant','Resident (no marriage record)')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'immigrant, born in GL09','Immigrant (from Linthal parish)')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'immigrant, born in NA','Immigrant (from outside Glarus)')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'immigrant, born in GL','Immigrant (from other Glarus parish)')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'emigrant, married in GL09','Emigrant (to Linthal)')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'emigrant, married in GL','Emigrant (to other glarus parish)')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'resident','Resident')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'incomplete_life_history','Incomplete life history')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'died_in_childhood','Died during childhood')) %>%  
+   dplyr::mutate(mut.migration_status_sum=stringr::str_replace_all(mut.migration_status_sum,'[0123456789]','')) %>%  
+   dplyr::mutate(`migration status`= mut.migration_status_sum) %>%
+  dplyr::select(-mut.migration_status_sum)
+
+f03a <- ggplot(data_lin_uni,aes(`migration status`,fill=`migration status`))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f03b <- ggplot(data_elm_uni,aes(`migration status`,fill=`migration status`))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f03 <- ggarrange(f03a,f03b,
+                labels = c("Linthal", "Elm"),
+                ncol = 2, nrow = 1)
+
+annotate_figure(f03,
+                left = text_grob("Count",rot=90,color = "black", size = 16),
+                bottom = text_grob("Migration status", color = "black", size = 16)
+)
+
+```
+
+### In 1990
+
+```{r}
+
+f05a <-  data_lin_uni %>% 
+  dplyr::filter(arryear<=1990 & depyear>1990) %>% 
+  ggplot(aes(`migration status`,fill=`migration status`))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f05b <- data_elm_uni %>% 
+  dplyr::filter(arryear<=1990 & depyear>1990) %>% 
+  ggplot(aes(`migration status`,fill=`migration status`))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f05 <- ggarrange(f05a,f05b,
+                labels = c("Linthal", "Elm"),
+                ncol = 2, nrow = 1)
+
+annotate_figure(f05,
+                left = text_grob("Count",rot=90,color = "black", size = 16),
+                bottom = text_grob("Migration status", color = "black", size = 16)
+)
+
+```
+
+### Resident (no marriage record): a deep dive
+
+None had recorded offspring but as noted above, resident (no marriage record) would likely include individuals that have emigrated but that the destination was just unknown, thus resulting in no recorded marriage location. 
+
+Indeed the death year was unknown for most of these individuals, for which a possible explanation is that they emigrated and therefore could not be tracked and as a result have no death year
+
+```{r}
+
+f04a <- 
+  data_lin_uni %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f04b <- 
+  data_elm_uni %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f04 <- ggarrange(f04a,f04b,
+                labels = c("Linthal", "Elm"),
+                ncol = 2, nrow = 1)
+
+annotate_figure(f04,
+                left = text_grob("Count",rot=90,color = "black", size = 16),
+                bottom = text_grob("Migration status", color = "black", size = 16)
+)
+
+
+```
+
+However, is this likely to affect the estimations of genetic contributions? 
+
+Well, firstly we can see that there is a substantial number of resident (no marriage record) individuals presnet in the population in 1990
+
+```{r}
+
+annotate_figure(f05,
+                left = text_grob("Countn",rot=90,color = "black", size = 16),
+                bottom = text_grob("Migration status", color = "black", size = 16)
+)
+
+```
+
+Additionally, in each parish the vast majority of these in each parish had no recorded death year (around 600).
+
+```{r}
+f06a <- 
+  data_lin_uni %>% 
+  dplyr::filter(arryear<=1990 & depyear>1990) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,700)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f06b <- 
+  data_elm_uni %>%
+  dplyr::filter(arryear<=1990 & depyear>1990) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,700)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+f06 <- ggarrange(f06a,f06b,
+                labels = c("Linthal", "Elm"),
+                ncol = 2, nrow = 1)
+
+annotate_figure(f06,
+                left = text_grob("Count",rot=90,color = "black", size = 16),
+                bottom = text_grob("Death year is NA", color = "black", size = 16)
+)
+
+
+```
+
+Therefore overall there are potentially ~600 individuals that are included in the population that probably were not present.
+
+```{r}
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1990 & depyear>1990) %>% 
+  dplyr::count(`migration status`=="Resident (no marriage record)" & is.na(dyear)) %>% 
+  knitr::kable(col.names = c("Linthal","count (missing death year)"))
+
+data_elm_uni %>% 
+  dplyr::filter(arryear<=1990 & depyear>1990) %>% 
+  dplyr::count(`migration status`=="Resident (no marriage record)" & is.na(dyear)) %>% 
+  knitr::kable(col.names = c("Elm","count (missing death year"))
+```
+
+### Does the proportion of missing dyears change through time?
+
+#### 1900, 1890, 1860,1800, 1700, 1630
+```{r}
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1990 & depyear>1990) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1950 & depyear>1950) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1900 & depyear>1900) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1890 & depyear>1890) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1875 & depyear>1875) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1860 & depyear>1860) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1800 & depyear>1800) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1700 & depyear>1700) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+data_lin_uni %>% 
+  dplyr::filter(arryear<=1630 & depyear>1630) %>% 
+  dplyr::filter(`migration status`=="Resident (no marriage record)") %>% 
+  ggplot(aes(is.na(dyear),fill=is.na(dyear)))+
+  geom_histogram(stat="count") +
+  theme_bw() +
+  ylab("")+
+  xlab("")  +
+  ylim(0,1400)+
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 90, family = "serif")) +
+  theme(legend.position = "none")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+```
+1990, 1950, 1900, 1890,1875, 1860,1800, 1700, 1630
+
+Surge in migration around 1875? Does seem to correspond to historical records: https://www.swissinfo.ch/eng/when-the-swiss-made-america/6784658
+
+# Migration Statuses through time
+
+```{r}
+elm_pop_03 <- as.data.frame(t(read.csv("elm_pop_03.csv")))
+
+colnames(elm_pop_03) <- elm_pop_03[rownames(elm_pop_03)=="X",]
+
+elm_pop_03 <- elm_pop_03[!rownames(elm_pop_03)=="X",]
+
+elm_pop_03$ID <- rownames(elm_pop_03)
+
+elm_mig_popn <- elm_pop_03 %>%
+  tidyr::gather(ID)
+
+elm_mig_popn <- elm_mig_popn  %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(value,'assumed_immigrant','Resident (missing marriage record)'),) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in GL09','Immigrant (from Linthal parish)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in NA','Immigrant (from outside Glarus)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in GL','Immigrant (from other Glarus parish)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'emigrant, married in GL09','Emigrant (to Linthal)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'emigrant, married in GL','Emigrant (to other glarus parish)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'resident','Resident')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'incomplete_life_history','Incomplete life history')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'died_in_childhood','Died during childhood')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'[0123456789]','')) %>%
+  dplyr::mutate(`migration status`= mut.value)
+
+lin_pop_03 <- as.data.frame(t(read.csv("lin_pop_03.csv")))
+
+colnames(lin_pop_03) <- lin_pop_03[rownames(lin_pop_03)=="X",]
+
+lin_pop_03 <- lin_pop_03[!rownames(lin_pop_03)=="X",]
+
+lin_pop_03$ID <- rownames(lin_pop_03)
+
+lin_mig_popn <- lin_pop_03 %>%
+  tidyr::gather(ID)
+
+lin_mig_popn <- lin_mig_popn  %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(value,'assumed_immigrant','Resident (missing marriage record)'),) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in GL03','Immigrant (from Elm parish)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in NA','Immigrant (from outside Glarus)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in GL','Immigrant (from other Glarus parish)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'emigrant, married in GL03','Emigrant (to Elm)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'emigrant, married in GL','Emigrant (to other glarus parish)')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'resident','Resident')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'incomplete_life_history','Incomplete life history')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'died_in_childhood','Died during childhood')) %>%
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'[0123456789]','')) %>%
+  dplyr::mutate(`migration status`= mut.value)
+
+f07a <- lin_mig_popn %>%
+  dplyr::count(ID,`migration status`) %>%
+  dplyr::mutate(year=as.numeric(ID)) %>%
+  dplyr::mutate(n=as.numeric(n)) %>%
+  dplyr::mutate(`migration status`=as.character(`migration status`)) %>%
+  tidyr::drop_na(`migration status`) %>%
+  dplyr::select(year,`migration status`,n) %>%
+   ggplot(aes(fill=`migration status`, y=n,x=year)) +
+  geom_bar(position="stack", stat="identity") +
+  ylab("N")+
+  xlab(bquote('Year'))  +
+  ylim(0,4500) +
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 0, family = "serif")) +
+  theme(legend.position = "right")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+f07b <- elm_mig_popn %>%
+  dplyr::count(ID,`migration status`) %>%
+  dplyr::mutate(year=as.numeric(ID)) %>%
+  dplyr::mutate(n=as.numeric(n)) %>%
+  dplyr::mutate(`migration status`=as.character(`migration status`)) %>%
+  tidyr::drop_na(`migration status`) %>%
+  dplyr::select(year,`migration status`,n) %>%
+   ggplot(aes(fill=`migration status`, y=n,x=year)) +
+  geom_bar(position="stack", stat="identity") +
+  ylab("N")+
+  xlab(bquote('Year'))  +
+  ylim(0,4500) +
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        axis.line.x.bottom = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank()) +
+  theme(axis.text = element_text(colour = "black", size = 16, angle = 0, family = "serif")) +
+  theme(legend.position = "right")+
+  theme(axis.title.x =  element_text(colour = "black", size = 16, face="plain")) +
+  theme(axis.title.y = element_text(colour = "black", size = 16, face="plain", lineheight = 0.5))
+
+f07 <- ggarrange(f07a,f07b,
+                labels = c("Linthal", "Elm"),
+                ncol = 1, nrow = 2)
+
+pdf(file = "migration_status_overtime.pdf", height = 10, width = 14)
+annotate_figure(f07,
+                left = text_grob("Count",rot=90,color = "black", size = 16),
+                bottom = text_grob("Year", color = "black", size = 16))
+                
+```
+
+
+
+
+

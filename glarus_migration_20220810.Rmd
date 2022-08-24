@@ -1,0 +1,664 @@
+---
+title: "Glarus Migration"
+author: "Euan A Young"
+date: '2022-08-10'
+output: html_document
+---
+
+Description of the level of migration in Linthal and Elm
+
+```{r}
+library(tidyverse)
+```
+
+
+# Elm
+
+```{r}
+
+data_elm_uni <- read.csv(file = "data_elm_uni.csv")
+
+```
+
+## Estimating population dynamics with c and s regcodes
+
+```{r}
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_elm_uni$arryear))
+max_arry <- max(na.omit(data_elm_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_elm_uni$IDp)
+
+elm_pop_01 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_elm_uni)))
+colnames(elm_pop_01) <- ids
+rownames(elm_pop_01) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(elm_pop_01))){ # for each individual
+  id <- colnames(elm_pop_01)[x]  ### get individual
+  id_row <- data_elm_uni[data_elm_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- paste0("born in ", birth_location, ", married in ", marriage_location, sep="")
+  print(x)
+  for(y in 1:(nrow(elm_pop_01))){ ### For each year
+    year <- as.numeric(rownames(elm_pop_01)[y])
+    elm_pop_01[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+  }
+}
+```
+
+
+```{r}
+
+# transpose to have years as columns
+elm_pop <- as.data.frame(t(elm_pop))
+
+elm_pop %>% count()
+
+elm_pop$ID <- row.names(elm_pop)
+
+# elm_pop_plot <- 
+  elm_pop %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  drop_na(migration_status) %>% 
+  select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+```
+
+# Data input
+
+```{r}
+
+data_lin_uni <- read.csv(file = "data_lin_uni.csv")
+
+```
+
+## Estimating population dynamics with c and s regcodes
+
+```{r}
+## Firstly I must establish when the loop/model will be ran from.
+
+# And these should be tracked for all subsequent years
+min_arry <- min(na.omit(data_lin_uni$arryear)) 
+max_arry <- max(na.omit(data_lin_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_lin_uni$IDp)
+
+lin_pop_01 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_lin_uni)))
+colnames(lin_pop_01) <- ids
+rownames(lin_pop_01) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(lin_pop_01))){ # for each individual
+  id <- colnames(lin_pop_01)[x]  ### get individual
+  id_row <- data_lin_uni[data_lin_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- paste0("born in ", birth_location, ", married in ", marriage_location, sep="")
+  print(x)
+  for(y in 1:(nrow(lin_pop_01))){ ### For each year
+    year <- as.numeric(rownames(lin_pop_01)[y])
+    lin_pop_01[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+  }
+}
+
+write.csv(lin_pop_01,"lin_pop_01.csv")
+```
+
+## Plotted
+
+```{r}
+# transpose to have years as columns
+lin_pop <- as.data.frame(t(lin_pop))
+
+lin_pop %>% count()
+
+lin_pop$ID <- row.names(lin_pop)
+
+# lin_pop_plot <- 
+  lin_pop %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  drop_na(migration_status) %>% 
+  select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+```
+
+# Using existing migrant statuses
+
+## Elm
+
+```{r}
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_elm_uni$arryear))
+max_arry <- max(na.omit(data_elm_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_elm_uni$IDp)
+
+elm_pop_02 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_elm_uni)))
+colnames(elm_pop_02) <- ids
+rownames(elm_pop_02) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(elm_pop_02))){ # for each individual
+  id <- colnames(elm_pop_02)[x]  ### get individual
+  id_row <- data_elm_uni[data_elm_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  migrant_status <- id_row$migrantstatus
+  print(x) 
+  for(y in 1:(nrow(elm_pop_02))){ ### For each year
+    year <- as.numeric(rownames(elm_pop_02)[y])
+    elm_pop_02[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+  }
+}
+```
+
+
+```{r}
+write.csv(elm_pop_02,"elm_pop_02.csv")
+# transpose to have years as columns
+elm_pop_02 <- as.data.frame(t(elm_pop_02))
+
+elm_pop_02 %>% count()
+
+elm_pop_02$ID <- row.names(elm_pop_02)
+
+# elm_pop_02_plot <- 
+  elm_pop_02 %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  drop_na(migration_status) %>% 
+  select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+```
+## Estimating population dynamics with c and s regcodes
+
+```{r}
+## Firstly I must establish when the loop/model will be ran from.
+
+# And these should be tracked for all subsequent years
+min_arry <- min(na.omit(data_lin_uni$arryear)) 
+max_arry <- max(na.omit(data_lin_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_lin_uni$IDp)
+
+lin_pop_02 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_lin_uni)))
+colnames(lin_pop_02) <- ids
+rownames(lin_pop_02) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(lin_pop_02))){ # for each individual
+  id <- colnames(lin_pop_02)[x]  ### get individual
+  id_row <- data_lin_uni[data_lin_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  migrant_status <- id_row$migrantstatus
+  print(x)
+  for(y in 1:(nrow(lin_pop_02))){ ### For each year
+    year <- as.numeric(rownames(lin_pop_02)[y])
+    lin_pop_02[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+  }
+}
+
+write.csv(lin_pop_02, "lin_pop_02.csv")
+```
+
+## Plotted
+
+```{r}
+# transpose to have years as columns
+lin_pop_02 <- as.data.frame(t(lin_pop_02))
+
+lin_pop_02 %>% count()
+
+lin_pop_02$ID <- row.names(lin_pop_02)
+
+# lin_pop_02_plot <- 
+  lin_pop_02 %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  drop_na(migration_status) %>% 
+  select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+```
+
+
+
+# Elm
+
+```{r}
+
+data_elm_uni <- read.csv(file = "data_elm_uni.csv")
+
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_elm_uni$arryear))
+max_arry <- max(na.omit(data_elm_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_elm_uni$IDp)
+
+elm_pop_03 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_elm_uni)))
+colnames(elm_pop_03) <- ids
+rownames(elm_pop_03) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(elm_pop_03))){ # for each individual
+  id <- colnames(elm_pop_03)[x]  ### get individual
+  id_row <- data_elm_uni[data_elm_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- id_row$migrantstatus
+  if(migrant_status=="emigrant") {
+    migrant_status <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+  else{migrant_status <- ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)
+  }
+    print(x)
+  for(y in 1:(nrow(elm_pop_03))){ ### For each year
+    year <- as.numeric(rownames(elm_pop_03)[y])
+    elm_pop_03[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+    
+  }
+    
+}
+
+write.csv(elm_pop_03, "elm_pop_03.csv")
+
+
+data_lin_uni <- read.csv(file = "data_lin_uni.csv")
+
+## Estimating population dynamics with c and s regcodes
+
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_lin_uni$arryear))
+max_arry <- max(na.omit(data_lin_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_lin_uni$IDp)
+
+lin_pop_03 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_lin_uni)))
+colnames(lin_pop_03) <- ids
+rownames(lin_pop_03) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(lin_pop_03))){ # for each individual
+  id <- colnames(lin_pop_03)[x]  ### get individual
+  id_row <- data_lin_uni[data_lin_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- id_row$migrantstatus
+  if(migrant_status=="emigrant") {
+    migrant_status <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+  else{migrant_status <- ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)
+  }
+    print(x)
+  for(y in 1:(nrow(lin_pop_03))){ ### For each year
+    year <- as.numeric(rownames(lin_pop_03)[y])
+    lin_pop_03[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+  }
+}
+    
+write.csv(lin_pop_03, "lin_pop_03.csv")
+
+```
+
+## Plots
+
+```{r}
+elm_pop_03 <- read.csv("elm_pop_03.csv")
+# transpose to have years as columns
+elm_pop_03 <- as.data.frame(t(elm_pop_03))
+
+elm_pop_03 %>% count()
+
+elm_pop_03$ID <- row.names(elm_pop_03)
+
+elm_pop_03_plot <- 
+elm_pop_03 %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  tidyr::drop_na(migration_status) %>% 
+  dplyr::select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+# transpose to have years as columns
+lin_pop_03 <- as.data.frame(t(lin_pop_03))
+
+lin_pop_03 %>% count()
+
+lin_pop_03$ID <- row.names(lin_pop_03)
+
+lin_pop_03_plot <- 
+lin_pop_03 %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  drop_na(migration_status) %>% 
+  select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+lin_pop_03_plot
+elm_pop_03_plot
+```
+
+```{r}
+
+# elm_pop_03 %>% 
+#   tidyr::gather(ID) %>% 
+#   mutate(
+# 
+# dplyr::case_when with %like% from data.table
+# 
+# require(dplyr);require(data.table)
+# df %>% 
+
+library(stringr)
+#   
+gat_elm_pop_03 <- elm_pop_03 %>% 
+  tidyr::gather(ID)
+
+gatmut_elm_pop_03 <- gat_elm_pop_03 %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(value,'assumed_immigrant','Assumed immigrant'),) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in GL09','Immigrant (from Linthal)')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in NA','Immigrant (from outside Glarus)')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'immigrant, born in GL','Immigrant (from other Glarus parish)')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'emigrant, married in GL09','Emigrant (to Linthal)')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'emigrant, married in GL','Emigrant (to other glarus parish)')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'resident','Resident')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'incomplete_life_history','Incomplete life history')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'died_in_childhood','Died during childhood')) %>% 
+  dplyr::mutate(mut.value=stringr::str_replace_all(mut.value,'[0123456789]',''))
+
+gatmut_elm_pop_03 %>% 
+  dplyr::count(ID,mut.value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(mut.value)) %>% 
+  tidyr::drop_na(migration_status) %>% 
+  dplyr::select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+gatmut_elm_pop_03 %>% 
+  dplyr::count(mut.value)
+
+```
+
+# 04 - with assummed migrant dyear included 
+
+# not run
+
+```{r}
+
+data_elm_uni <- read.csv(file = "data_elm_uni.csv")
+
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_elm_uni$arryear))
+max_arry <- max(na.omit(data_elm_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_elm_uni$IDp)
+
+elm_pop_04 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_elm_uni)))
+colnames(elm_pop_04) <- ids
+rownames(elm_pop_04) <- years
+
+# fill in the migration information 
+for(x in sample(x = 1:ncol(elm_pop_04),1000)){ # for each individual
+  id <- colnames(elm_pop_04)[x]  ### get individual
+  id_row <- data_elm_uni[data_elm_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- id_row$migrantstatus
+  migrant_status <- ifelse(migrant_status == 'emigrant',  paste0(migrant_status,", married in ", marriage_location, sep=""),
+               ifelse(migrant_status=="assumed_immigrant", paste0(migrant_status,", dyear is NA = ", is.na(id_row$dyear), sep=""),
+                      ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)))
+    print(x)
+  for(y in 1:(nrow(elm_pop_04))){ ### For each year
+    year <- as.numeric(rownames(elm_pop_04)[y])
+    elm_pop_04[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+    
+  }
+}
+
+write.csv(elm_pop_04, "elm_pop_04.csv")
+
+elm_pop_04 <- as.data.frame(t(elm_pop_04))
+
+colnames(elm_pop_04) <- elm_pop_04[rownames(elm_pop_04)=="X",]
+
+elm_pop_04 <- elm_pop_04[!rownames(elm_pop_04)=="X",]
+
+elm_pop_04$ID <- rownames(elm_pop_04)
+
+elm_mig_popn <- elm_pop_04 %>%
+  tidyr::gather(ID)
+
+
+data_lin_uni <- read.csv(file = "data_lin_uni.csv")
+
+## Estimating population dynamics with c and s regcodes
+
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_lin_uni$arryear))
+max_arry <- max(na.omit(data_lin_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_lin_uni$IDp)
+
+lin_pop_04 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_lin_uni)))
+colnames(lin_pop_04) <- ids
+rownames(lin_pop_04) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(lin_pop_04))){ # for each individual
+  id <- colnames(lin_pop_04)[x]  ### get individual
+  id_row <- data_lin_uni[data_lin_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- id_row$migrantstatus
+  if(migrant_status=="emigrant") {
+    migrant_status <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+  else{migrant_status <- ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)
+  }
+    print(x)
+  for(y in 1:(nrow(lin_pop_04))){ ### For each year
+    year <- as.numeric(rownames(lin_pop_04)[y])
+    lin_pop_04[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+  }
+}
+    
+write.csv(lin_pop_04, "lin_pop_04.csv")
+
+```
+
+# 2022-08-23 Update
+
+```{r}
+data_elm_uni <- read.csv(file = "data_elm_uni.csv")
+
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_elm_uni$arryear))
+max_arry <- max(na.omit(data_elm_uni$arryear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_elm_uni$IDp)
+
+elm_pop_03 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_elm_uni)))
+colnames(elm_pop_03) <- ids
+rownames(elm_pop_03) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(elm_pop_03))){ # for each individual
+  id <- colnames(elm_pop_03)[x]  ### get individual
+  id_row <- data_elm_uni[data_elm_uni$IDp==id,]
+  arr_year <- id_row$arryear
+  dep_year <- id_row$depyear
+  birth_location <- id_row$cregcode
+  marriage_location <- id_row$sregcode
+  migrant_status <- id_row$migrantstatus
+  if(migrant_status=="emigrant") {
+    migrant_status <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+  else{migrant_status <- ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)
+  }
+    print(x)
+  for(y in 1:(nrow(elm_pop_03))){ ### For each year
+    year <- as.numeric(rownames(elm_pop_03)[y])
+    elm_pop_03[y,x] <- ifelse(year>=arr_year & year < dep_year, migrant_status, NA)
+    
+  }
+    
+}
+
+write.csv(elm_pop_03, "elm_pop_03.csv")
+```
+
+
+```{r}
+data_lin_ADYs <- read.csv(file = "data_lin_ADYs_20220823.csv")
+
+data_lin_ADYs %>% dplyr::count(migrantstatus)
+```
+
+
+```{r}
+## Estimating population dynamics with c and s regcodes
+
+## Firstly I must establish when the loop/model will be ran from.
+min_arry <- min(na.omit(data_lin_ADYs$arryear))
+max_arry <- max(na.omit(data_lin_ADYs$depyear))
+years <- min_arry:max_arry
+
+ids <- as.character(data_lin_ADYs$IDp)
+
+lin_pop_20220823 <-as.data.frame(matrix(NA,length(years),ncol=nrow(data_lin_ADYs)))
+colnames(lin_pop_20220823) <- ids
+rownames(lin_pop_20220823) <- years
+
+# fill in the migration information 
+for(x in 1:(ncol(lin_pop_20220823))){ # for each individual
+  id <- colnames(lin_pop_20220823)[x]  ### get individual
+  id_row <- data_lin_ADYs[data_lin_ADYs$IDp==id,]
+  for(z in 1:nrow(id_row)){
+  id_row_x <- id_row[z,]
+  arr_year <- id_row_x$arryear
+  dep_year <- id_row_x$depyear
+  birth_location <- id_row_x$cregcode
+  marriage_location <- id_row_x$sregcode
+  migrant_status <- id_row_x$migrantstatus
+  if(migrant_status=="emigrant") {
+    migrant_status <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+  else{if(migrant_status=="resident_returned") {
+    migrant_status <- paste0(migrant_status,", married in ", marriage_location, sep="")
+    }
+    migrant_status <- ifelse(migrant_status=="immigrant", paste0(migrant_status, ", born in ", birth_location, sep=""), migrant_status)
+  }
+    print(x)
+  for(y in 1:(nrow(lin_pop_20220823))){ ### For each year
+    year <- as.numeric(rownames(lin_pop_20220823)[y])
+    lin_pop_20220823[y,x] <- ifelse((year+1)>arr_year & (year-1) < dep_year, migrant_status, NA)
+  } 
+}
+}
+    
+write.csv(lin_pop_20220823, "lin_pop_20220823.csv")
+
+```
+
+## Plots
+
+```{r}
+elm_pop_03 <- read.csv("elm_pop_03.csv")
+# transpose to have years as columns
+elm_pop_03 <- as.data.frame(t(elm_pop_03))
+
+elm_pop_03 %>% count()
+
+elm_pop_03$ID <- row.names(elm_pop_03)
+
+elm_pop_03_plot <- 
+elm_pop_03 %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  tidyr::drop_na(migration_status) %>% 
+  dplyr::select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+# transpose to have years as columns
+lin_pop_20220823 <- as.data.frame(t(lin_pop_20220823))
+
+lin_pop_20220823 %>% count()
+
+lin_pop_20220823$ID <- row.names(lin_pop_20220823)
+
+# lin_pop_20220823_plot <- 
+lin_pop_20220823 %>% 
+  tidyr::gather(ID) %>% 
+  dplyr::count(ID,value) %>% 
+  dplyr::mutate(year=as.numeric(ID)) %>%  
+  dplyr::mutate(n=as.numeric(n)) %>%  
+  dplyr::mutate(migration_status=as.character(value)) %>% 
+  tidyr::drop_na(migration_status) %>% 
+  dplyr::select(year,migration_status,n) %>% 
+   ggplot(aes(fill=migration_status, y=n,x=year)) + 
+  geom_bar(position="stack", stat="identity")
+
+lin_pop_03_plot
+elm_pop_03_plot
+```
+
+
